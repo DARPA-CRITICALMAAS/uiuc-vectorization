@@ -7,9 +7,9 @@ import geopandas as gpd
 
 log = logging.getLogger('DARPA_CMASS')
 
-def polygonize(img, crs, transform, threshold):
+def polygonize(img, crs, transform, noise_threshold=10):
     # Remove "noise" from image by removing pixel groups below a threshold
-    sieve_img = sieve(img, threshold, connectivity=4)
+    sieve_img = sieve(img, noise_threshold, connectivity=4)
 
     # Convert raster to vector shapes
     logging.debug('Converting to vector')
