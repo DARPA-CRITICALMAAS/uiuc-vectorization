@@ -1,13 +1,10 @@
 import os
-import json
 import logging
 import argparse
 from tqdm import tqdm
-import geopandas as gpd
 
 import rasterio
-from rasterio.features import shapes, sieve 
-from shapely.geometry import shape, mapping
+from src.polygonize import polygonize, exportVectorData
 
 logging.basicConfig(level='INFO')
 
@@ -56,17 +53,7 @@ def main():
             crs = fh.crs
             transform = fh.transform
 
-        # Remove "noise" from image by removing pixel groups below a threshold
-        sieve_img = sieve(img, args.threshold, connectivity=4)
-
-        # Convert raster to vector shapes
-        logging.debug('Converting to vector')
-        shape_gen = shapes(sieve_img, connectivity=4, transform=transform)
-
-        # Only use Filled pixels (1s) for shapes 
-        geometries = [shape(geometry) for geometry, value in shape_gen if value == 1]
-
-        data = gpd.GeoDataFrame( geometry=geometries, crs=crs)
+        data = polygonize(img, crs, transform, args.threshold)
 
         # Save Data
         if os.path.isdir(args.output):
@@ -74,22 +61,7 @@ def main():
         else:
             export_filename = args.output
 
-        logging.info(f'Saving data to {export_filename}.')
-        # GeoJson
-        if args.export_type == 'geojson':
-            if os.path.splitext(export_filename)[1] not in ['.json','.geojson']:
-                export_filename += '.json'
-            data.to_crs('EPSG:4326')
-            data.to_file(export_filename, driver='GeoJSON')
-        # GeoPackage
-        elif args.export_type == 'geopackage':
-            if os.path.splitext(export_filename)[1] != '.gpkg':
-                export_filename += '.gpkg'
-            data.to_file(export_filename, layer='cities', driver="GPKG")
-        # How did we get here?
-        else:
-            print(f'Invalid export_type : \"{args.export_type}\"')
-
+        exportVectorData(data, export_filename, args.export_type)
 
 if __name__ == '__main__':
     main()
