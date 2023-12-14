@@ -20,7 +20,7 @@ def polygonize(img, crs, transform, noise_threshold=10):
 
     return gpd.GeoDataFrame(geometry=geometries, crs=crs)
 
-def exportVectorData(geoDataFrame, filename, filetype):
+def exportVectorData(geoDataFrame, filename, layer=None, filetype='geopackage'):
     SUPPORTED_FILETYPES = ['json', 'geojson','geopackage']
 
     if filetype not in SUPPORTED_FILETYPES:
@@ -28,7 +28,7 @@ def exportVectorData(geoDataFrame, filename, filetype):
         return # Could raise exception but just skipping for now.
     
     # GeoJson
-    if filetype == 'geojson':
+    if filetype in ['json', 'geojson']:
         if os.path.splitext(filename)[1] not in ['.json','.geojson']:
             filename += '.geojson'
         geoDataFrame.to_crs('EPSG:4326')
@@ -38,4 +38,4 @@ def exportVectorData(geoDataFrame, filename, filetype):
     elif filetype == 'geopackage':
         if os.path.splitext(filename)[1] != '.gpkg':
             filename += '.gpkg'
-        geoDataFrame.to_file(filename, driver="GPKG")
+        geoDataFrame.to_file(filename, layer=layer, driver="GPKG")

@@ -25,26 +25,26 @@ def main():
     # Get command line args
     args = parse_command_line()
 
-    if not args.output:
-        if os.path.isdir(args.raster):
-            args.output = args.raster + '_out'
-        else:
-            args.output = os.path.splitext(args.raster)[0] + '.geojson'
-    else: 
-        if not os.path.exists(args.output) and not os.path.splitext(args.output)[1]:
-            os.makedirs(args.output)
-
     # Get list of filepaths if directory
     if os.path.isdir(args.raster):
         rasters = [os.path.join(args.raster, f) for f in os.listdir(args.raster) if f.endswith('tif')]
     else:
         rasters = [args.raster]
 
+    if not args.output:
+        if os.path.isdir(args.raster):
+            args.output = args.raster + '_out'
+        else:
+            args.output = os.path.splitext(args.raster)[0]
+    
+    if not os.path.exists(args.output) and not os.path.splitext(args.output)[1]:
+        os.makedirs(args.output)
+
     pbar = tqdm(rasters)
     for file in pbar:
         pbar.set_description(f'Processing {os.path.basename(file)}')
         pbar.refresh()
-        basename = os.path.basename(os.path.splitext(file)[0])
+        fname = os.path.basename(os.path.splitext(file)[0])
         
         # Load data
         logging.debug(f'Loading {file}')
@@ -53,15 +53,15 @@ def main():
             crs = fh.crs
             transform = fh.transform
 
-        data = polygonize(img, crs, transform, args.threshold)
+        data = polygonize(img, crs, transform, noise_threshold=args.threshold)
 
         # Save Data
         if os.path.isdir(args.output):
-            export_filename = os.path.join(args.output, basename)
+            export_filename = os.path.join(args.output, fname)
         else:
             export_filename = args.output
 
-        exportVectorData(data, export_filename, args.export_type)
+        exportVectorData(data, export_filename, layer=fname, filetype=args.export_type)
 
 if __name__ == '__main__':
     main()
