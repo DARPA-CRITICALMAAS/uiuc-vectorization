@@ -1,4 +1,5 @@
-rasterio
-shapely
-pyproj
 tqdm
+shapely
+rasterio
+geopandas
+

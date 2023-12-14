@@ -3,7 +3,7 @@ import json
 import logging
 import argparse
 from tqdm import tqdm
-from pyproj import CRS
+import geopandas as gpd
 
 import rasterio
 from rasterio.features import shapes, sieve 
@@ -14,8 +14,14 @@ logging.basicConfig(level='INFO')
 def parse_command_line():
     parser = argparse.ArgumentParser(description='')
     parser.add_argument('raster')
-    parser.add_argument('-o', '--output', default=None)
-    parser.add_argument('-t', '--threshold', default=10, help='Threshold in pixels of raster polygons to be removed')
+    parser.add_argument('-t', '--export_type',
+                        choices=['geojson', 'geopackage'],
+                        default='geopackage',
+                        help='The file type to export the data to. (default: %(default)s)')
+    parser.add_argument('-o', '--output',
+                        default=None,
+                        help='The location to write to')
+    parser.add_argument('-d', '--threshold', default=10, help='Threshold in pixels of raster polygons to be removed')
     return parser.parse_args()
 
 def main():
@@ -47,6 +53,7 @@ def main():
         logging.debug(f'Loading {file}')
         with rasterio.open(file) as fh:
             img = fh.read(1)
+            crs = fh.crs
             transform = fh.transform
 
         # Remove "noise" from image by removing pixel groups below a threshold
@@ -59,19 +66,30 @@ def main():
         # Only use Filled pixels (1s) for shapes 
         geometries = [shape(geometry) for geometry, value in shape_gen if value == 1]
 
-        # Convert to geojson format
-        logging.debug('Saving geojson')
-        features = [{'geometry': mapping(geom), 'type': 'Feature', 'properties': {}} for geom in geometries]
-        geojson_data = {'type': 'FeatureCollection', 'features': features}
+        data = gpd.GeoDataFrame( geometry=geometries, crs=crs)
 
-        # Save GeoJson
+        # Save Data
         if os.path.isdir(args.output):
-            outfile = os.path.join(args.output, basename + '.geojson')
+            export_filename = os.path.join(args.output, basename)
         else:
-            outfile = args.output
+            export_filename = args.output
 
-        with open(outfile,'w') as fh:
-            json.dump(geojson_data, fh)
+        logging.info(f'Saving data to {export_filename}.')
+        # GeoJson
+        if args.export_type == 'geojson':
+            if os.path.splitext(export_filename)[1] not in ['.json','.geojson']:
+                export_filename += '.json'
+            data.to_crs('EPSG:4326')
+            data.to_file(export_filename, driver='GeoJSON')
+        # GeoPackage
+        elif args.export_type == 'geopackage':
+            if os.path.splitext(export_filename)[1] != '.gpkg':
+                export_filename += '.gpkg'
+            data.to_file(export_filename, layer='cities', driver="GPKG")
+        # How did we get here?
+        else:
+            print(f'Invalid export_type : \"{args.export_type}\"')
+
 
 if __name__ == '__main__':
     main()
